@@ -3,13 +3,14 @@ import numpy as np
 from sklearn.feature_extraction.text import CountVectorizer#, TfidfTransformer
 from sklearn.naive_bayes import MultinomialNB
 from naive_bayes import NaiveBayes
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 
 filename = 'augmented.csv'
 augmented_df = pd.read_csv(filename)
 print 'Working on file: %s' % filename
+print augmented_df.head()
 
-vectorizer = CountVectorizer(max_df=0.1)#, min_df=5, ngram_range=(1,3))
+vectorizer = CountVectorizer(max_df=0.1)#, min_df=5)#, ngram_range=(1,3))
 X = vectorizer.fit_transform(augmented_df['article_title'])
 vocab_rev = {v:k for k,v in vectorizer.vocabulary_.items()}
 y = np.array(augmented_df['clickbait'])
@@ -36,8 +37,8 @@ alphas = [0, 0.01, 0.1, 0.25, 0.5, 0.75, 1, 1.5, 2, 5]
 scores = nb_madhu.cross_validation(X_train, y_train, alphas)
 scores = {k:np.mean(v) for k,v in scores.items()}
 print 'Mean cross-validation accuracy for each alpha:', scores
-plt.plot(*(zip(*(sorted(scores.items(), key = lambda tup : tup[0])))))
-plt.show()
+#plt.plot(*(zip(*(sorted(scores.items(), key = lambda tup : tup[0])))))
+#plt.show()
 alpha = max(scores, key = lambda k : scores[k])
 print 'Best alpha:', alpha
 nb_madhu.fit(X_train, y_train, alpha=alpha, vocab=vectorizer.vocabulary_)
@@ -46,3 +47,13 @@ print
 
 print 'Representative words:'
 print nb_madhu.representative_words()
+print
+
+rep_errors = nb_madhu.representative_errors(X_test, y_test)
+print 'Some non-clickbait titles that were misclassified as clickbait:'
+for title in augmented_df[~train_mask]['article_title'].iloc[rep_errors[0]]:
+    print title
+print
+print 'Some clickbait titles that were misclassified as non-clickbait:'
+for title in augmented_df[~train_mask]['article_title'].iloc[rep_errors[1]]:
+    print title
