@@ -16,7 +16,7 @@ class NaiveBayes:
         self.classprobs = self.classcounts / self.classcounts.sum()
         self.logclassprobs = np.log(self.classprobs)
 
-        self.wordcounts = np.array([map(float, np.array((X[y==c].todense()).sum(axis=0))[0]) for c in self.classes])
+        self.wordcounts = np.array([map(float, np.array(X[y==c].sum(axis=0))[0]) for c in self.classes])
         self.wordprobs = ((self.wordcounts + alpha).T / (self.wordcounts + alpha).sum(axis=1)).T
         self.logwordprobs = np.log(self.wordprobs)
 
@@ -82,3 +82,35 @@ class NaiveBayes:
         #print class_indices[1][0:20]
         extreme_errors = [[ind_lst[err_ind] for err_ind in err_lst] for err_lst, ind_lst in zip(extreme_errors, class_indices)]
         return extreme_errors
+
+class NotNaiveBayes:
+    def fit(self, X, y, n_preceding=1, alpha=1., vocab=None):
+        self.X = X
+        self.y = np.array(y)
+        self.n_preceding = n_preceding
+        self.alpha = alpha
+        self.vocab = vocab
+        self.vocab_rev = {v:k for k,v in vocab.items()} if vocab is not None else None
+        self.vocab_size = len(vocab) if vocab is not None else max(map(max, X))+1
+        self.classes = list(set(self.y))
+        self.classes_rev = {v:k for k,v in enumerate(self.classes)}
+        self.nclasses = len(self.classes)
+
+        self.classcounts = np.array([float((self.y==c).sum()) for c in self.classes])
+        self.classprobs = self.classcounts / self.classcounts.sum()
+        self.logclassprobs = np.log(self.classprobs)
+
+        self.transition_mats = []
+        for c in self.classes:
+            cb_mat = sp.sparse.lil_matrix((self.vocab_size**self.n_preceding+1, self.vocab_size+1))
+            for lst in [x for x, y in zip(X, y) if y == c]:
+                lst_new = [cb_mat.shape[0]-1] + lst + [cb_mat.shape[1]-1]
+                seq_lst = zip(*(tuple(lst_new[i:] for i in range(n_preceding+1))))
+                for tup in seq_lst:
+                    cb_mat[self.compute_index(tup)] += 1
+            cb_mat = sp.sparse.lil_matrix(cb_mat / cb_mat.sum(axis=1))
+            assert((cb_mat.sum(axis=1) == 1)[0].all())
+            self.transition_mats.append(cb_mat.copy())
+
+    def compute_index(self, tup):
+        return sum([elt*(self.vocab_size**exponent) for elt, exponent in zip(tup[:-1], reversed(range(len(tup)-1)))]), tup[-1]
