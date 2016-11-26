@@ -2,10 +2,12 @@ import numpy as np
 import scipy as sp
 
 class NaiveBayes:
-    def fit(self, X, y, alpha=1.):
+    def fit(self, X, y, alpha=1., vocab=None):
         self.X = np.array(X)
         self.y = np.array(y)
         self.alpha = alpha
+        self.vocab = vocab
+        self.vocab_rev = {v:k for k,v in vocab.items()} if vocab is not None else None
         self.classes = list(set(self.y))
         self.classes_rev = {v:k for k,v in enumerate(self.classes)}
         self.nclasses = len(self.classes)
@@ -60,3 +62,12 @@ class NaiveBayes:
                 self.fit(X_train, y_train, alpha)
                 scores[alpha].append(self.score(split_X[leave_out], split_y[leave_out]))
         return scores
+
+    def representative_words(self, n_words=10):
+        logwordprobs_avg = np.mean(self.logwordprobs, axis=0)
+        logwordprobs_normalized = self.logwordprobs - logwordprobs_avg
+        indices = [sorted(range(len(lst)), key = lambda ind : -lst[ind])[0:n_words] for lst in logwordprobs_normalized]
+        if self.vocab_rev is None:
+            return indices
+        else:
+            return [[self.vocab_rev[ind] for ind in lst] for lst in indices]

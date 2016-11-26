@@ -40,5 +40,9 @@ plt.plot(*(zip(*(sorted(scores.items(), key = lambda tup : tup[0])))))
 plt.show()
 alpha = max(scores, key = lambda k : scores[k])
 print 'Best alpha:', alpha
-nb_madhu.fit(X_train, y_train, alpha=alpha)
+nb_madhu.fit(X_train, y_train, alpha=alpha, vocab=vectorizer.vocabulary_)
 print 'Madhu NB test accuracy (with optimal alpha): %.5f' % nb_madhu.score(X_test, y_test)
+print
+
+print 'Representative words:'
+print nb_madhu.representative_words()
