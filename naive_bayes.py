@@ -33,3 +33,21 @@ class NaiveBayes:
         predictions = self.predict(X)
         n_correct = sum([p==c for p, c in zip(predictions, y)])
         return float(n_correct) / X.shape[1]
+
+    def cross_validation(self, X, y, alphas, k=5):
+        n_samples = X.shape[1]
+        assert(len(y) == n_samples)
+        indices = range(n_samples)
+        np.random.shuffle(indices)
+        split = [sorted(indices[start::k]) for start in range(k)]
+        split_X = [np.array(X)[ind_list] for ind_list in split]
+        split_y = [np.array(y)[ind_list] for ind_list in split]
+        scores = dict()
+        for alpha in alphas:
+            scores[alpha] = []
+            for leave_out in range(k):
+                X_train = np.hstack(tuple(split_X[i] for i in range(k) if i != leave_out))
+                y_train = np.concatenate(tuple(split_y[i] for i in range(k) if i != leave_out))
+                self.train(X_train, y_train, alpha)
+                scores[alpha].append(self.score(split_X[leave_out], split_y[leave_out]))
+        return scores
