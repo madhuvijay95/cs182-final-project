@@ -71,3 +71,14 @@ class NaiveBayes:
             return indices
         else:
             return [[self.vocab_rev[ind] for ind in lst] for lst in indices]
+
+    def representative_errors(self, X, y, n_examples=10):
+        proba = self.predict_proba(X)
+        posterior = np.array([lst[self.classes_rev[c]] for lst, c in zip(proba, y)])
+        posterior_split = [posterior[y == self.classes_rev[c]] for c in self.classes]
+        extreme_errors = [sorted(range(len(lst)), key = lambda ind : lst[ind])[0:n_examples] for lst in posterior_split]
+        class_indices = [np.array(range(X.shape[0]))[y == self.classes_rev[c]] for c in self.classes]
+        #print class_indices[0][0:20]
+        #print class_indices[1][0:20]
+        extreme_errors = [[ind_lst[err_ind] for err_ind in err_lst] for err_lst, ind_lst in zip(extreme_errors, class_indices)]
+        return extreme_errors
