@@ -2,9 +2,10 @@ import numpy as np
 import scipy as sp
 
 class NaiveBayes:
-    def fit(self, X, y, alpha=1):
+    def fit(self, X, y, alpha=1.):
         self.X = np.array(X)
         self.y = np.array(y)
+        self.alpha = alpha
         self.classes = list(set(self.y))
         self.classes_rev = {v:k for k,v in enumerate(self.classes)}
         self.nclasses = len(self.classes)
