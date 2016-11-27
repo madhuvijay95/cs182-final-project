@@ -1,5 +1,6 @@
 import numpy as np
 import scipy as sp
+from scipy import sparse
 
 class NaiveBayes:
     def fit(self, X, y, alpha=1., vocab=None):
@@ -84,6 +85,10 @@ class NaiveBayes:
         return extreme_errors
 
 class NotNaiveBayes:
+    def convert(self, dataset, countvectorizer):
+        analyzer = countvectorizer.build_analyzer()
+        return [[countvectorizer.vocabulary_[word] for word in analyzer(title) if word in countvectorizer.vocabulary_] for title in dataset] # TODO this is weird because it just totally ignores words that aren't in the CountVectorizer vocab
+
     def fit(self, X, y, n_preceding=1, alpha=1., vocab=None):
         self.X = X
         self.y = np.array(y)
@@ -91,7 +96,7 @@ class NotNaiveBayes:
         self.alpha = alpha
         self.vocab = vocab
         self.vocab_rev = {v:k for k,v in vocab.items()} if vocab is not None else None
-        self.vocab_size = len(vocab) if vocab is not None else max(map(max, X))+1
+        self.vocab_size = len(vocab) if vocab is not None else max([max(lst) for lst in X if len(lst) > 0])+1
         self.classes = list(set(self.y))
         self.classes_rev = {v:k for k,v in enumerate(self.classes)}
         self.nclasses = len(self.classes)
@@ -100,17 +105,51 @@ class NotNaiveBayes:
         self.classprobs = self.classcounts / self.classcounts.sum()
         self.logclassprobs = np.log(self.classprobs)
 
-        self.transition_mats = []
+        self.count_mats = []
         for c in self.classes:
             cb_mat = sp.sparse.lil_matrix((self.vocab_size**self.n_preceding+1, self.vocab_size+1))
-            for lst in [x for x, y in zip(X, y) if y == c]:
+            for lst in [x for x, k in zip(X, y) if k == c]:
                 lst_new = [cb_mat.shape[0]-1] + lst + [cb_mat.shape[1]-1]
-                seq_lst = zip(*(tuple(lst_new[i:] for i in range(n_preceding+1))))
+                seq_lst = zip(*(tuple(lst_new[i:] for i in range(self.n_preceding+1))))
                 for tup in seq_lst:
                     cb_mat[self.compute_index(tup)] += 1
-            cb_mat = sp.sparse.lil_matrix(cb_mat / cb_mat.sum(axis=1))
-            assert((cb_mat.sum(axis=1) == 1)[0].all())
-            self.transition_mats.append(cb_mat.copy())
+            self.count_mats.append(cb_mat.copy())
 
     def compute_index(self, tup):
         return sum([elt*(self.vocab_size**exponent) for elt, exponent in zip(tup[:-1], reversed(range(len(tup)-1)))]), tup[-1]
+
+    def predict_log_proba(self, X):
+        X_modified = [[self.vocab_size**self.n_preceding] + lst + [self.vocab_size] for lst in X]
+        X_modified = [zip(*(tuple(lst[i:] for i in range(self.n_preceding+1)))) for lst in X_modified]
+        indices = [[self.compute_index(tup) for tup in lst] for lst in X_modified]
+        log_proba = np.array([[sum([np.log(float(mat[tup[0], tup[1]] + self.alpha) / (mat[tup[0]].sum() + self.alpha * mat.shape[1])) for tup in lst]) for mat in self.count_mats] for lst in indices])
+        log_proba += self.logclassprobs
+        log_proba = (log_proba.T - np.log(np.exp(log_proba).sum(axis=1))).T
+        return log_proba
+
+    def predict_proba(self, X):
+        return np.exp(self.predict_log_proba(X))
+
+    def predict(self, X):
+        log_proba = self.predict_log_proba(X)
+        predictions = np.argmax(log_proba, axis=1)
+        predictions = [self.classes[i] for i in predictions]
+        return predictions
+
+    def score(self, X, y):
+        predictions = self.predict(X)
+        n_correct = sum([p==c for p, c in zip(predictions, y)])
+        return float(n_correct) / len(X)
+
+    def generate(self, c):
+        lst = [self.vocab_size**self.n_preceding]
+        mat = self.count_mats[self.classes_rev[c]]
+        while len(lst) == 1 or lst[-1] != self.vocab_size:
+            dist = np.array(mat[lst[-1]].todense())[0]
+            dist += self.alpha
+            dist /= dist.sum()
+            lst.append(np.random.choice(range(self.vocab_size+1), p=dist))
+        if self.vocab is not None:
+            return ' '.join([self.vocab_rev[ind] for ind in lst[1:-1]])
+        else:
+            return lst

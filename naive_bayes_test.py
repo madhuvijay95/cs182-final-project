@@ -2,15 +2,20 @@ import pandas as pd
 import numpy as np
 from sklearn.feature_extraction.text import CountVectorizer#, TfidfTransformer
 from sklearn.naive_bayes import MultinomialNB
-from naive_bayes import NaiveBayes
-#import matplotlib.pyplot as plt
+from naive_bayes import NaiveBayes, NotNaiveBayes
+import sys
 
 filename = 'augmented.csv'
 augmented_df = pd.read_csv(filename)
 print 'Working on file: %s' % filename
 print augmented_df.head()
+print
+print
 
-vectorizer = CountVectorizer(max_df=0.1)#, min_df=5)#, ngram_range=(1,3))
+
+print '=================================NAIVE BAYES RESULTS================================='
+
+vectorizer = CountVectorizer(max_df=0.1, min_df=5)#, ngram_range=(1,3))
 X = vectorizer.fit_transform(augmented_df['article_title'])
 vocab_rev = {v:k for k,v in vectorizer.vocabulary_.items()}
 y = np.array(augmented_df['clickbait'])
@@ -57,3 +62,26 @@ print
 print 'Some clickbait titles that were misclassified as non-clickbait:'
 for title in augmented_df[~train_mask]['article_title'].iloc[rep_errors[1]]:
     print title
+
+print
+print
+sys.stdout.flush()
+
+
+print '=================================LESS-NAIVE BAYES RESULTS================================='
+
+nb_madhu = NotNaiveBayes()
+X_train_new = nb_madhu.convert(augmented_df[train_mask]['article_title'], vectorizer)
+X_test_new = nb_madhu.convert(augmented_df[~train_mask]['article_title'], vectorizer)
+nb_madhu.fit(X_train_new, y_train, vocab=vectorizer.vocabulary_, alpha=0.001)
+for _ in range(5):
+    print nb_madhu.generate(0)
+    sys.stdout.flush()
+print
+for _ in range(5):
+    print nb_madhu.generate(1)
+    sys.stdout.flush()
+#for alpha in [0.01, 0.05, 0.1, 0.5, 1]:
+#    nb_madhu.fit(X_train_new, y_train, alpha=alpha)
+#    print 'Score (with alpha=%.2f): %.5f' % (alpha, nb_madhu.score(X_test_new, y_test))
+#    sys.stdout.flush()
