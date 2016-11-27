@@ -150,6 +150,6 @@ class NotNaiveBayes:
             dist /= dist.sum()
             lst.append(np.random.choice(range(self.vocab_size+1), p=dist))
         if self.vocab is not None:
-            return ' '.join([self.vocab_rev[ind] for ind in lst[1:-1]])
+            return ' '.join([self.vocab_rev[ind] for ind in lst[1:-1]]).encode('utf-8')
         else:
             return lst
