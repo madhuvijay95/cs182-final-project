@@ -153,3 +153,14 @@ class NotNaiveBayes:
             return ' '.join([self.vocab_rev[ind] for ind in lst[1:-1]]).encode('utf-8')
         else:
             return lst
+
+    def generate_mode(self, c):
+        lst = [self.vocab_size**self.n_preceding]
+        mat = self.count_mats[self.classes_rev[c]]
+        while len(lst) == 1 or lst[-1] != self.vocab_size:
+            dist = np.array(mat[lst[-1]].todense())[0]
+            lst.append(np.argmax(dist))
+        if self.vocab is not None:
+            return ' '.join([self.vocab_rev[ind] for ind in lst[1:-1]]).encode('utf-8')
+        else:
+            return lst
