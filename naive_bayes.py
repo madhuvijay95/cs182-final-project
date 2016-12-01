@@ -3,48 +3,67 @@ import scipy as sp
 from scipy import sparse
 
 class NaiveBayes:
-    def fit(self, X, y, alpha=1., vocab=None):
-        self.X = np.array(X)
-        self.y = np.array(y)
+    # Fits the Naive Bayes model, given a matrix X of word counts (e.g. using the output of sklearn's CountVectorizer),
+    # and a list y of class assignments.
+    def fit(self, X, y, alpha=1., vocab=None): # TODO should probably put the parameter initialization in an __init__ function, instead of the fit function itself
+        # store parameters
         self.alpha = alpha
         self.vocab = vocab
         self.vocab_rev = {v:k for k,v in vocab.items()} if vocab is not None else None
-        self.classes = list(set(self.y))
+
+        # store information on classes passed in
+        self.classes = list(set(y))
         self.classes_rev = {v:k for k,v in enumerate(self.classes)}
         self.nclasses = len(self.classes)
 
-        self.classcounts = np.array([float((self.y==c).sum()) for c in self.classes])
+        # compute prior distribution over classes, using counts for each class
+        self.classcounts = np.array([float((np.array(y)==c).sum()) for c in self.classes])
         self.classprobs = self.classcounts / self.classcounts.sum()
         self.logclassprobs = np.log(self.classprobs)
 
+        # compute the number of times that each word shows up in each topic
         self.wordcounts = np.array([map(float, np.array(X[y==c].sum(axis=0))[0]) for c in self.classes])
+        # augment by Dirichlet parameter alpha (for smoothing), and normalize the result to have sum 1 for each topic
         self.wordprobs = ((self.wordcounts + alpha).T / (self.wordcounts + alpha).sum(axis=1)).T
+        # compute log probability of each word for each topic
         self.logwordprobs = np.log(self.wordprobs)
 
+    # Take in an N x D data matrix X and output an N x K matrix (where K is the number of classes) containing the
+    # posterior log probability of each class assignment for each data point.
     def predict_log_proba(self, X):
+        # compute the log probability of each document given each possible class assignment
         log_proba = X.dot(self.logwordprobs.T)
+        # incorporate prior class probabilities to find posterior probability of each class for each data point
         log_proba += self.logclassprobs
+        # normalize each row to sum to 1
         log_proba = (log_proba.T - np.log(np.exp(log_proba).sum(axis=1))).T
         return log_proba
 
+    # Same as predict_log_proba, but outputs probabilities instead of log probabilities
     def predict_proba(self, X):
         return np.exp(self.predict_log_proba(X))
 
+    # Same as predict_log_proba and predict_proba, but outputs the single most likely class assignment (instead of a
+    # full distribution) for each data point.
     def predict(self, X):
+        # compute log probability of each class for each data point
         log_proba = self.predict_log_proba(X)
+        # compute and return the most likely class for each row of X
         predictions = np.argmax(log_proba, axis=1)
         predictions = [self.classes[i] for i in predictions]
         return predictions
 
+    # Computes accuracy of the classifier on the given data (i.e. computes predictions on X, and computes how frequently
+    # the predictions match the actual cluster assignments).
     def score(self, X, y):
         predictions = self.predict(X)
         n_correct = sum([p==c for p, c in zip(predictions, y)])
         return float(n_correct) / X.shape[0]
 
-    def score2(self, X, y):
-        proba = self.predict_proba(X)
-        y_ind = [self.classes_rev[c] for c in y]
-        return np.mean([row[ind] for row, ind in zip(proba, y_ind)])
+    #def score2(self, X, y):
+    #    proba = self.predict_proba(X)
+    #    y_ind = [self.classes_rev[c] for c in y]
+    #    return np.mean([row[ind] for row, ind in zip(proba, y_ind)])
 
     def cross_validation(self, X, y, alphas, k=5):
         n_samples = X.shape[0]
@@ -90,18 +109,16 @@ class NotNaiveBayes:
         return [[countvectorizer.vocabulary_[word] for word in analyzer(title) if word in countvectorizer.vocabulary_] for title in dataset] # TODO this is weird because it just totally ignores words that aren't in the CountVectorizer vocab
 
     def fit(self, X, y, n_preceding=1, alpha=1., vocab=None):
-        self.X = X
-        self.y = np.array(y)
         self.n_preceding = n_preceding
         self.alpha = alpha
         self.vocab = vocab
         self.vocab_rev = {v:k for k,v in vocab.items()} if vocab is not None else None
         self.vocab_size = len(vocab) if vocab is not None else max([max(lst) for lst in X if len(lst) > 0])+1
-        self.classes = list(set(self.y))
+        self.classes = list(set(y))
         self.classes_rev = {v:k for k,v in enumerate(self.classes)}
         self.nclasses = len(self.classes)
 
-        self.classcounts = np.array([float((self.y==c).sum()) for c in self.classes])
+        self.classcounts = np.array([float((np.array(y)==c).sum()) for c in self.classes])
         self.classprobs = self.classcounts / self.classcounts.sum()
         self.logclassprobs = np.log(self.classprobs)
 
