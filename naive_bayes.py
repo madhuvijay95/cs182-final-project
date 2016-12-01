@@ -28,8 +28,8 @@ class NaiveBayes:
         # compute log probability of each word for each topic
         self.logwordprobs = np.log(self.wordprobs)
 
-    # Take in an N x D data matrix X and output an N x K matrix (where K is the number of classes) containing the
-    # posterior log probability of each class assignment for each data point.
+    # Take in an N x D data matrix X and output an N x K matrix (where K is the number of topics) containing the
+    # posterior log probability of each topic assignment for each data point.
     def predict_log_proba(self, X):
         # compute the log probability of each document given each possible class assignment
         log_proba = X.dot(self.logwordprobs.T)
@@ -65,41 +65,62 @@ class NaiveBayes:
     #    y_ind = [self.classes_rev[c] for c in y]
     #    return np.mean([row[ind] for row, ind in zip(proba, y_ind)])
 
+    # Use k-fold cross-validation to test different values of the smoothing parameter alpha.
     def cross_validation(self, X, y, alphas, k=5):
+        # compute number of data points
         n_samples = X.shape[0]
         assert(len(y) == n_samples)
+        # generate a random permutation of the data points
         indices = range(n_samples)
         np.random.shuffle(indices)
+        # split the indices into k subsets, and split X and y accordingly
         split = [sorted(indices[start::k]) for start in range(k)]
         split_X = [X[ind_list] for ind_list in split]
         split_y = [np.array(y)[ind_list] for ind_list in split]
+
+        # initialize a dictionary to store accuracy rates
         scores = dict()
+        # loop through all allowed values of alpha
         for alpha in alphas:
+            # initialize scores[alpha] as a list to store the k accuracy rates
             scores[alpha] = []
+            # loop over the k subsets to leave out
             for leave_out in range(k):
+                # train the model on all data except the left-out set
                 X_train = sp.sparse.vstack(tuple(split_X[i] for i in range(k) if i != leave_out))
                 y_train = np.concatenate(tuple(split_y[i] for i in range(k) if i != leave_out))
                 self.fit(X_train, y_train, alpha)
+                # compute and store accuracy on the left-out subset
                 scores[alpha].append(self.score(split_X[leave_out], split_y[leave_out]))
         return scores
 
+    # Return a list of "most representative" words (i.e. words for which the log probability of that word in the given
+    # topic is large relative to the average log probability of the word given other topics) for each topic
     def representative_words(self, n_words=10):
+        # for each word, compute the average of log[p(word|class)] across all classes
         logwordprobs_avg = np.mean(self.logwordprobs, axis=0)
+        # use logwordprobs_avg to normalize the p(word|class) matrix
         logwordprobs_normalized = self.logwordprobs - logwordprobs_avg
+        # compute indices of the most representative words (i.e. the highest values in the matrix above) for each topic
         indices = [sorted(range(len(lst)), key = lambda ind : -lst[ind])[0:n_words] for lst in logwordprobs_normalized]
+        # return the indices, or lists of words if the vocabulary is known
         if self.vocab_rev is None:
             return indices
         else:
             return [[self.vocab_rev[ind] for ind in lst] for lst in indices]
 
+    # Return indices of the most egregious errors for each topic (i.e. for each class c, return a list of indices of
+    # data points in class c for which the classifier thought p(c|data) was very low).
     def representative_errors(self, X, y, n_examples=10):
+        # use predict_proba to compute p(class|data) for each data point and each class
         proba = self.predict_proba(X)
+        # find the predictive probability p(correct class|data) for each data point
         posterior = np.array([lst[self.classes_rev[c]] for lst, c in zip(proba, y)])
+        # split up the posterior array by class
         posterior_split = [posterior[y == self.classes_rev[c]] for c in self.classes]
+        # find and return the indices of the most egregious errors within each class
         extreme_errors = [sorted(range(len(lst)), key = lambda ind : lst[ind])[0:n_examples] for lst in posterior_split]
-        class_indices = [np.array(range(X.shape[0]))[y == self.classes_rev[c]] for c in self.classes]
-        #print class_indices[0][0:20]
-        #print class_indices[1][0:20]
+        class_indices = [np.arange(X.shape[0])[y == self.classes_rev[c]] for c in self.classes]
         extreme_errors = [[ind_lst[err_ind] for err_ind in err_lst] for err_lst, ind_lst in zip(extreme_errors, class_indices)]
         return extreme_errors
 
