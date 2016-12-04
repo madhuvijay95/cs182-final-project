@@ -2,6 +2,8 @@ import numpy as np
 from operator import itemgetter
 from collections import Counter
 from sklearn.metrics import classification_report, accuracy_score
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn import cross_validation
 import time
 
 class kNearestNeighbors:
@@ -12,9 +14,19 @@ class kNearestNeighbors:
     # output: 	(1) list of predictions for class assignments
 
 	# generate predictions for data (in pandas dataframe format)
-	def fit_score(self, x_train, x_test, y_train, y_test, k=3):
+	def fit_score(self, data, k, n_features, full_report=True, progress=True):
 
-		start_time = time.time()
+		start_time = time.time() 
+
+		# extract y vector from data
+		y = list(data.clickbait)
+
+		# vectorize x data
+		vectorizer = TfidfVectorizer(max_features=n_features, stop_words='english', use_idf=True)
+		x = np.asarray(vectorizer.fit_transform(list(data.article_title)).todense())
+
+		# split data into test and train sets
+		x_train, x_test, y_train, y_test = cross_validation.train_test_split(x, y, test_size=0.3, random_state=1)
 
 		# recombine (x, y) for each set
 		train = np.array(zip(x_train, y_train))
@@ -25,19 +37,22 @@ class kNearestNeighbors:
 		for x in range(len(test)):
 		    
 			# keep track of progress by 100-sized batches
-			if x % 100 == 0:
-				print "classified", x, "observations ..."
+			if progress:
+				if x % 100 == 0:
+					print "classified", x, "observations ..."
 		    
 			# predict class based on majority vote for k neighors
 			prediction = self.majority_vote(self.get_neighbors(train_data=train, test_obs=test[x][0], k=k))
 			predictions.append(prediction)
 
 		# summarize model performance
+		self.accuracy = accuracy_score(y_test, predictions)
 		print "took %s seconds" % (time.time() - start_time)
-		print "overall accuracy is " + str(accuracy_score(y_test, predictions)) 
-		print "full report:"
-		print 
-		print classification_report(y_test, predictions, target_names = ['clickbait','non-clickbait'])
+		print "overall accuracy is " + str(self.accuracy) 
+		if full_report:
+			print "full report:"
+			print 
+			print classification_report(y_test, predictions, target_names = ['clickbait','non-clickbait'])
 
 	# calculate euclidean distance between two data points x_1 and x_2
 	def get_distance(self, x_1, x_2):
@@ -66,3 +81,23 @@ class kNearestNeighbors:
 	# score model accuracy
 	def score(y_test, preds):
 		return accuracy_score(y_test, preds)
+
+	# cross validate across values of k or n (tfidf n_features param)
+	def cv(self, data, k_vals=None, n_vals=None):
+		
+		# store accuracies to find best value
+		accuracies = {}
+		
+		if k_vals is not None:
+			for k in k_vals:
+				print '========== k = %s ==========' % k
+				self.fit_score(data=data, k=k, n_features=50, full_report=False, progress=False)
+				accuracies[k] = self.accuracy
+			print "best value of k is", max(accuracies.iteritems(), key=itemgetter(1))
+		
+		if n_vals is not None:
+			for n in n_vals:
+				print '========== n = %s ==========' % n
+				self.fit_score(data=data, k=9, n_features=n, full_report=False, progress=False)
+				accuracies[n] = self.accuracy
+			print "best value of n is", max(accuracies.iteritems(), key=itemgetter(1))
