@@ -1,5 +1,4 @@
 import pandas as pd
-from sklearn.metrics import classification_report, accuracy_score
 from knn import kNearestNeighbors
 import sys
 import time
