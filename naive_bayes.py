@@ -234,18 +234,22 @@ class NotNaiveBayes:
                 if output:
                     print '%.3f' % score,
                     sys.stdout.flush()
-            #for leave_out in range(k):
-            #    # train the model on all data except the left-out set
-            #    X_train = reduce(lambda a,b : a+b, [split_X[i] for i in range(k) if i != leave_out])
-            #    y_train = np.concatenate(tuple(split_y[i] for i in range(k) if i != leave_out))
-            #    self.fit(X_train, y_train, alpha)
-            #    # compute and store accuracy on the left-out subset
-            #    score = self.score(split_X[leave_out], split_y[leave_out])
-            #    scores[alpha].append(score)
-            #    if output:
-            #        print '%.3f' % score,
-            #        sys.stdout.flush()
             if output:
                 print ' ==> %.3f' % np.mean(scores[alpha])
                 sys.stdout.flush()
         return scores
+
+    # Return indices of the most egregious errors for each topic (i.e. for each class c, return a list of indices of
+    # data points in class c for which the classifier thought p(c|data) was very low).
+    def representative_errors(self, X, y, n_examples=10):
+        # use predict_proba to compute p(class|data) for each data point and each class
+        proba = self.predict_proba(X)
+        # find the predictive probability p(correct class|data) for each data point
+        posterior = np.array([lst[self.classes_rev[c]] for lst, c in zip(proba, y)])
+        # split up the posterior array by class
+        posterior_split = [posterior[y == self.classes_rev[c]] for c in self.classes]
+        # find and return the indices of the most egregious errors within each class
+        extreme_errors = [sorted(range(len(lst)), key = lambda ind : lst[ind])[0:n_examples] for lst in posterior_split]
+        class_indices = [np.arange(X.shape[0])[y == self.classes_rev[c]] for c in self.classes]
+        extreme_errors = [[ind_lst[err_ind] for err_ind in err_lst] for err_lst, ind_lst in zip(extreme_errors, class_indices)]
+        return extreme_errors
