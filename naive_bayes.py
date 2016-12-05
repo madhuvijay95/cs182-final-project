@@ -61,13 +61,8 @@ class NaiveBayes:
         n_correct = sum([p==c for p, c in zip(predictions, y)])
         return float(n_correct) / X.shape[0]
 
-    #def score2(self, X, y):
-    #    proba = self.predict_proba(X)
-    #    y_ind = [self.classes_rev[c] for c in y]
-    #    return np.mean([row[ind] for row, ind in zip(proba, y_ind)])
-
     # Use k-fold cross-validation to test different values of the smoothing parameter alpha.
-    def cross_validation(self, X, y, alphas, k=5):
+    def cross_validation(self, X, y, alphas, k=5, output=False):
         # compute number of data points
         n_samples = X.shape[0]
         assert(len(y) == n_samples)
@@ -83,6 +78,9 @@ class NaiveBayes:
         scores = dict()
         # loop through all allowed values of alpha
         for alpha in alphas:
+            if output:
+                print 'Cross-validation on alpha=%.3f:  ' % alpha,
+                sys.stdout.flush()
             # initialize scores[alpha] as a list to store the k accuracy rates
             scores[alpha] = []
             # loop over the k subsets to leave out
@@ -92,7 +90,14 @@ class NaiveBayes:
                 y_train = np.concatenate(tuple(split_y[i] for i in range(k) if i != leave_out))
                 self.fit(X_train, y_train, alpha)
                 # compute and store accuracy on the left-out subset
-                scores[alpha].append(self.score(split_X[leave_out], split_y[leave_out]))
+                score = self.score(split_X[leave_out], split_y[leave_out])
+                scores[alpha].append(score)
+                if output:
+                    print '%.3f' % score,
+                    sys.stdout.flush()
+            if output:
+                print ' ==> %.3f' % np.mean(scores[alpha])
+                sys.stdout.flush()
         return scores
 
     # Return a list of "most representative" words (i.e. words for which the log probability of that word in the given
@@ -130,6 +135,8 @@ class NotNaiveBayes:
         analyzer = countvectorizer.build_analyzer()
         return [[countvectorizer.vocabulary_[word] for word in analyzer(title) if word in countvectorizer.vocabulary_] for title in dataset]
 
+    # The fit function takes an input (which is a list of lists, where each sub-list represents a list of indices of
+    # words in that title.
     def fit(self, X, y, alpha=1., vocab=None):
         # store parameters
         self.alpha = alpha
@@ -147,14 +154,23 @@ class NotNaiveBayes:
         self.classprobs = self.classcounts / self.classcounts.sum()
         self.logclassprobs = np.log(self.classprobs)
 
+        # have a list of transition matrices (one for each class)
         self.count_mats = []
+        # loop through classes
         for c in self.classes:
+            # Initialize sparse transition matrix. Each index from 0..vocab_size-1 represents the corresponding row;
+            # the last row represents the distribution for the first word of each title, and the last column represents
+            # the probabilities that any given is the last word in an article title.
             cb_mat = sp.sparse.lil_matrix((self.vocab_size+1, self.vocab_size+1))
+            # loop through all data points that are in the current class c
             for lst in [x for x, k in zip(X, y) if k == c]:
+                # pad the start and end of the word list with extra values to represent the start and end
                 lst_new = [cb_mat.shape[0]-1] + lst + [cb_mat.shape[1]-1]
-                seq_lst = zip(*(tuple(lst_new[i:] for i in [0,1])))
+                # list of tuples of consecutive word indices
+                seq_lst = zip(lst_new[0:-1], lst_new[1:])
+                # increment each element of the count matrix appropriately
                 for tup in seq_lst:
-                    cb_mat[self.compute_index(tup)] += 1
+                    cb_mat[tup] += 1
             self.count_mats.append(cb_mat.copy())
 
     def compute_index(self, tup):
@@ -162,7 +178,7 @@ class NotNaiveBayes:
 
     def predict_log_proba(self, X):
         X_modified = [[self.vocab_size] + lst + [self.vocab_size] for lst in X]
-        X_modified = [zip(*(tuple(lst[i:] for i in [0,1])) for lst in X_modified]
+        X_modified = [zip(*(tuple(lst[i:] for i in [0,1]))) for lst in X_modified]
         indices = [[self.compute_index(tup) for tup in lst] for lst in X_modified]
         log_proba = np.array([[sum([np.log(float(mat[tup[0], tup[1]] + self.alpha) / (mat[tup[0]].sum() + self.alpha * mat.shape[1])) for tup in lst]) for mat in self.count_mats] for lst in indices])
         log_proba += self.logclassprobs
@@ -183,43 +199,53 @@ class NotNaiveBayes:
         n_correct = sum([p==c for p, c in zip(predictions, y)])
         return float(n_correct) / len(X)
 
-    def generate(self, c):
-        lst = [self.vocab_size]
-        mat = self.count_mats[self.classes_rev[c]]
-        while len(lst) == 1 or lst[-1] != self.vocab_size:
-            dist = np.array(mat[lst[-1]].todense())[0]
-            dist += self.alpha
-            dist /= dist.sum()
-            lst.append(np.random.choice(range(self.vocab_size+1), p=dist))
-        if self.vocab is not None:
-            return ' '.join([self.vocab_rev[ind] for ind in lst[1:-1]]).encode('utf-8')
-        else:
-            return lst
+    # Use k-fold cross-validation to test different values of the smoothing parameter alpha.
+    def cross_validation(self, X, y, alphas, k=5, output=False):
+        # compute number of data points
+        n_samples = len(X)
+        assert(len(y) == n_samples)
+        # generate a random permutation of the data points
+        indices = range(n_samples)
+        np.random.shuffle(indices)
+        # split the indices into k subsets, and split X and y accordingly
+        split = [sorted(indices[start::k]) for start in range(k)]
+        split_X = [[X[i] for i in ind_list] for ind_list in split]
+        split_y = [np.array(y)[ind_list] for ind_list in split]
 
-    def generate_fixed_length(self, c, length):
-        lst = [self.vocab_size]
-        mat = self.count_mats[self.classes_rev[c]]
-        while len(lst) < length+2:
-            dist = np.array(mat[lst[-1]].todense())[0]
-            if dist[self.vocab_size] == 1:
-                return self.generate_fixed_length(c, length)
-            dist += self.alpha
-            dist /= dist.sum()
-            next_word = np.random.choice(range(self.vocab_size+1), p=dist)
-            if next_word != self.vocab_size:
-                lst.append(next_word)
-        if self.vocab is not None:
-            return ' '.join([self.vocab_rev[ind] for ind in lst[1:-1]]).encode('utf-8')
-        else:
-            return lst
-
-    def generate_mode(self, c):
-        lst = [self.vocab_size]
-        mat = self.count_mats[self.classes_rev[c]]
-        while len(lst) == 1 or lst[-1] != self.vocab_size:
-            dist = np.array(mat[lst[-1]].todense())[0]
-            lst.append(np.argmax(dist))
-        if self.vocab is not None:
-            return ' '.join([self.vocab_rev[ind] for ind in lst[1:-1]]).encode('utf-8')
-        else:
-            return lst
+        # initialize a dictionary to store accuracy rates
+        scores = dict()
+        # loop through all allowed values of alpha
+        for alpha in alphas:
+            if output:
+                print 'Cross-validation on alpha=%.3f:  ' % alpha,
+                sys.stdout.flush()
+            # initialize scores[alpha] as a list to store the k accuracy rates
+            scores[alpha] = []
+            # loop over the k subsets to leave out
+            count_mats_all = []
+            for leave_out in range(k):
+                # train
+                self.fit(split_X[leave_out], split_y[leave_out], alpha)
+                count_mats_all.append(self.count_mats)
+            for leave_out in range(k):
+                self.count_mats = [reduce(lambda mat1, mat2 : mat1+mat2, [count_mats_all[i][c] for i in range(k) if i != leave_out]) for c in range(self.nclasses)]
+                score = self.score(split_X[leave_out], split_y[leave_out])
+                scores[alpha].append(score)
+                if output:
+                    print '%.3f' % score,
+                    sys.stdout.flush()
+            #for leave_out in range(k):
+            #    # train the model on all data except the left-out set
+            #    X_train = reduce(lambda a,b : a+b, [split_X[i] for i in range(k) if i != leave_out])
+            #    y_train = np.concatenate(tuple(split_y[i] for i in range(k) if i != leave_out))
+            #    self.fit(X_train, y_train, alpha)
+            #    # compute and store accuracy on the left-out subset
+            #    score = self.score(split_X[leave_out], split_y[leave_out])
+            #    scores[alpha].append(score)
+            #    if output:
+            #        print '%.3f' % score,
+            #        sys.stdout.flush()
+            if output:
+                print ' ==> %.3f' % np.mean(scores[alpha])
+                sys.stdout.flush()
+        return scores
