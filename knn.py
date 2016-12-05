@@ -13,19 +13,23 @@ class kNearestNeighbors:
     #		 	(2) list y of class assignments
     # output: 	(1) list of predictions for class assignments
 
+	def __init__(self, k=3, n_features=50):
+		self.k = k
+		self.n_features = n_features
+
 	# generate predictions for data (in pandas dataframe format)
-	def fit_score(self, traindf, testdf, k, n_features, full_report=True, progress=True):
+	def fit_score(self, traindf, testdf, full_report=True, progress=True):
 
 		start_time = time.time() 
 
 		# extract y vector from data
-		y_train = np.array(train.clickbait)
-		y_test = np.array(test.clickbait)
+		y_train = np.array(traindf.clickbait)
+		y_test = np.array(testdf.clickbait)
 
 		# vectorize x data
-		vectorizer = TfidfVectorizer(max_features=n_features, stop_words='english', use_idf=True)
-		x_train = np.asarray(vectorizer.fit_transform(list(train.article_title)).todense())
-		y_train = np.asarray(vectorizer.transform(list(test.article_title)).todense())
+		vectorizer = TfidfVectorizer(max_features=self.n_features, stop_words='english', use_idf=True)
+		x_train = np.asarray(vectorizer.fit_transform(list(traindf.article_title)).todense())
+		x_test = np.asarray(vectorizer.transform(list(testdf.article_title)).todense())
 		
 		# split data into test and train sets
 		# x_train, x_test, y_train, y_test = cross_validation.train_test_split(x, y, test_size=0.3, random_state=1)
@@ -44,7 +48,7 @@ class kNearestNeighbors:
 					print "classified", x, "observations ..."
 		    
 			# predict class based on majority vote for k neighors
-			prediction = self.majority_vote(self.get_neighbors(train_data=train, test_obs=test[x][0], k=k))
+			prediction = self.majority_vote(self.get_neighbors(train_data=train, test_obs=test[x][0], k=self.k))
 			predictions.append(prediction)
 
 		# summarize model performance
