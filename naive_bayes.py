@@ -158,14 +158,13 @@ class NotNaiveBayes:
         self.count_mats = []
         # loop through classes
         for c in self.classes:
-            # Initialize sparse transition matrix. Each index from 0..vocab_size-1 represents the corresponding row;
-            # the last row represents the distribution for the first word of each title, and the last column represents
-            # the probabilities that any given is the last word in an article title.
-            cb_mat = sp.sparse.lil_matrix((self.vocab_size+1, self.vocab_size+1))
+            # Initialize sparse transition matrix. Each index from 0..vocab_size-1 represents the corresponding element
+            # of the vocabulary; the last row represents the distribution for the first word of each title.
+            cb_mat = sp.sparse.lil_matrix((self.vocab_size+1, self.vocab_size))
             # loop through all data points that are in the current class c
             for lst in [x for x, k in zip(X, y) if k == c]:
                 # pad the start and end of the word list with extra values to represent the start and end
-                lst_new = [cb_mat.shape[0]-1] + lst + [cb_mat.shape[1]-1]
+                lst_new = [cb_mat.shape[0]-1] + lst
                 # list of tuples of consecutive word indices
                 seq_lst = zip(lst_new[0:-1], lst_new[1:])
                 # increment each element of the count matrix appropriately
@@ -173,14 +172,10 @@ class NotNaiveBayes:
                     cb_mat[tup] += 1
             self.count_mats.append(cb_mat.copy())
 
-    def compute_index(self, tup):
-        return sum([elt*(self.vocab_size**exponent) for elt, exponent in zip(tup[:-1], reversed(range(len(tup)-1)))]), tup[-1]
-
     def predict_log_proba(self, X):
-        X_modified = [[self.vocab_size] + lst + [self.vocab_size] for lst in X]
-        X_modified = [zip(*(tuple(lst[i:] for i in [0,1]))) for lst in X_modified]
-        indices = [[self.compute_index(tup) for tup in lst] for lst in X_modified]
-        log_proba = np.array([[sum([np.log(float(mat[tup[0], tup[1]] + self.alpha) / (mat[tup[0]].sum() + self.alpha * mat.shape[1])) for tup in lst]) for mat in self.count_mats] for lst in indices])
+        X_modified = [[self.vocab_size] + lst for lst in X]
+        X_modified = [zip(lst[0:-1], lst[1:]) for lst in X_modified]
+        log_proba = np.array([[sum([np.log(float(mat[tup[0], tup[1]] + self.alpha) / (mat[tup[0]].sum() + self.alpha * mat.shape[1])) for tup in lst]) for mat in self.count_mats] for lst in X_modified])
         log_proba += self.logclassprobs
         log_proba = (log_proba.T - np.log(np.exp(log_proba).sum(axis=1))).T
         return log_proba
@@ -250,6 +245,6 @@ class NotNaiveBayes:
         posterior_split = [posterior[y == self.classes_rev[c]] for c in self.classes]
         # find and return the indices of the most egregious errors within each class
         extreme_errors = [sorted(range(len(lst)), key = lambda ind : lst[ind])[0:n_examples] for lst in posterior_split]
-        class_indices = [np.arange(X.shape[0])[y == self.classes_rev[c]] for c in self.classes]
+        class_indices = [np.arange(len(X))[y == self.classes_rev[c]] for c in self.classes]
         extreme_errors = [[ind_lst[err_ind] for err_ind in err_lst] for err_lst, ind_lst in zip(extreme_errors, class_indices)]
         return extreme_errors
