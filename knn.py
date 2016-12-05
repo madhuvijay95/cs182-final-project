@@ -89,7 +89,7 @@ class kNearestNeighbors:
 		return accuracy_score(y_test, preds)
 
 	# cross validate across values of k or n (tfidf n_features param)
-	def cv(self, data, k_vals=None, n_vals=None):
+	def cv(self, traindf, testdf, k_vals=None, n_vals=None):
 		
 		# store accuracies to find best value
 		accuracies = {}
@@ -97,13 +97,13 @@ class kNearestNeighbors:
 		if k_vals is not None:
 			for k in k_vals:
 				print '========== k = %s ==========' % k
-				self.fit_score(data=data, k=k, n_features=50, full_report=False, progress=False)
+				self.fit_score(traindf=traindf, testdf=testdf, k=k, n_features=50, full_report=False, progress=False)
 				accuracies[k] = self.accuracy
 			print "best value of k is", max(accuracies.iteritems(), key=itemgetter(1))
 		
 		if n_vals is not None:
 			for n in n_vals:
 				print '========== n = %s ==========' % n
-				self.fit_score(data=data, k=9, n_features=n, full_report=False, progress=False)
+				self.fit_score(traindf=traindf, testdf=testdf, k=9, n_features=n, full_report=False, progress=False)
 				accuracies[n] = self.accuracy
 			print "best value of n is", max(accuracies.iteritems(), key=itemgetter(1))

@@ -24,7 +24,7 @@ knn = kNearestNeighbors(k=3, n_features=10)
 knn.fit_score(train, test)
 
 # cross-validation
-# knn.cv(df, k_vals=[1,3,5,7,9])
-# knn.cv(df, n_vals=[10,50,100,250,500])
+# knn.cv(train, test, k_vals=[1,3,5,7,9])
+# knn.cv(train, test, n_vals=[10,50,100,250,500])
 
 sys.stdout.flush()
