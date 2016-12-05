@@ -1,6 +1,7 @@
 import numpy as np
 import scipy as sp
 from scipy import sparse
+import sys
 
 class NaiveBayes:
     # Fits the Naive Bayes model, given a matrix X of word counts (e.g. using the output of sklearn's CountVectorizer),
@@ -127,28 +128,31 @@ class NaiveBayes:
 class NotNaiveBayes:
     def convert(self, dataset, countvectorizer):
         analyzer = countvectorizer.build_analyzer()
-        return [[countvectorizer.vocabulary_[word] for word in analyzer(title) if word in countvectorizer.vocabulary_] for title in dataset] # TODO this is weird because it just totally ignores words that aren't in the CountVectorizer vocab
+        return [[countvectorizer.vocabulary_[word] for word in analyzer(title) if word in countvectorizer.vocabulary_] for title in dataset]
 
-    def fit(self, X, y, n_preceding=1, alpha=1., vocab=None):
-        self.n_preceding = n_preceding
+    def fit(self, X, y, alpha=1., vocab=None):
+        # store parameters
         self.alpha = alpha
         self.vocab = vocab
         self.vocab_rev = {v:k for k,v in vocab.items()} if vocab is not None else None
         self.vocab_size = len(vocab) if vocab is not None else max([max(lst) for lst in X if len(lst) > 0])+1
+
+        # store information on classes passed in
         self.classes = list(set(y))
         self.classes_rev = {v:k for k,v in enumerate(self.classes)}
         self.nclasses = len(self.classes)
 
+        # compute prior distribution over classes, using counts for each class
         self.classcounts = np.array([float((np.array(y)==c).sum()) for c in self.classes])
         self.classprobs = self.classcounts / self.classcounts.sum()
         self.logclassprobs = np.log(self.classprobs)
 
         self.count_mats = []
         for c in self.classes:
-            cb_mat = sp.sparse.lil_matrix((self.vocab_size**self.n_preceding+1, self.vocab_size+1))
+            cb_mat = sp.sparse.lil_matrix((self.vocab_size+1, self.vocab_size+1))
             for lst in [x for x, k in zip(X, y) if k == c]:
                 lst_new = [cb_mat.shape[0]-1] + lst + [cb_mat.shape[1]-1]
-                seq_lst = zip(*(tuple(lst_new[i:] for i in range(self.n_preceding+1))))
+                seq_lst = zip(*(tuple(lst_new[i:] for i in [0,1])))
                 for tup in seq_lst:
                     cb_mat[self.compute_index(tup)] += 1
             self.count_mats.append(cb_mat.copy())
@@ -157,8 +161,8 @@ class NotNaiveBayes:
         return sum([elt*(self.vocab_size**exponent) for elt, exponent in zip(tup[:-1], reversed(range(len(tup)-1)))]), tup[-1]
 
     def predict_log_proba(self, X):
-        X_modified = [[self.vocab_size**self.n_preceding] + lst + [self.vocab_size] for lst in X]
-        X_modified = [zip(*(tuple(lst[i:] for i in range(self.n_preceding+1)))) for lst in X_modified]
+        X_modified = [[self.vocab_size] + lst + [self.vocab_size] for lst in X]
+        X_modified = [zip(*(tuple(lst[i:] for i in [0,1])) for lst in X_modified]
         indices = [[self.compute_index(tup) for tup in lst] for lst in X_modified]
         log_proba = np.array([[sum([np.log(float(mat[tup[0], tup[1]] + self.alpha) / (mat[tup[0]].sum() + self.alpha * mat.shape[1])) for tup in lst]) for mat in self.count_mats] for lst in indices])
         log_proba += self.logclassprobs
@@ -180,7 +184,7 @@ class NotNaiveBayes:
         return float(n_correct) / len(X)
 
     def generate(self, c):
-        lst = [self.vocab_size**self.n_preceding]
+        lst = [self.vocab_size]
         mat = self.count_mats[self.classes_rev[c]]
         while len(lst) == 1 or lst[-1] != self.vocab_size:
             dist = np.array(mat[lst[-1]].todense())[0]
@@ -192,8 +196,25 @@ class NotNaiveBayes:
         else:
             return lst
 
+    def generate_fixed_length(self, c, length):
+        lst = [self.vocab_size]
+        mat = self.count_mats[self.classes_rev[c]]
+        while len(lst) < length+2:
+            dist = np.array(mat[lst[-1]].todense())[0]
+            if dist[self.vocab_size] == 1:
+                return self.generate_fixed_length(c, length)
+            dist += self.alpha
+            dist /= dist.sum()
+            next_word = np.random.choice(range(self.vocab_size+1), p=dist)
+            if next_word != self.vocab_size:
+                lst.append(next_word)
+        if self.vocab is not None:
+            return ' '.join([self.vocab_rev[ind] for ind in lst[1:-1]]).encode('utf-8')
+        else:
+            return lst
+
     def generate_mode(self, c):
-        lst = [self.vocab_size**self.n_preceding]
+        lst = [self.vocab_size]
         mat = self.count_mats[self.classes_rev[c]]
         while len(lst) == 1 or lst[-1] != self.vocab_size:
             dist = np.array(mat[lst[-1]].todense())[0]
