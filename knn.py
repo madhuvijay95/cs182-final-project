@@ -14,19 +14,21 @@ class kNearestNeighbors:
     # output: 	(1) list of predictions for class assignments
 
 	# generate predictions for data (in pandas dataframe format)
-	def fit_score(self, data, k, n_features, full_report=True, progress=True):
+	def fit_score(self, traindf, testdf, k, n_features, full_report=True, progress=True):
 
 		start_time = time.time() 
 
 		# extract y vector from data
-		y = list(data.clickbait)
+		y_train = np.array(train.clickbait)
+		y_test = np.array(test.clickbait)
 
 		# vectorize x data
 		vectorizer = TfidfVectorizer(max_features=n_features, stop_words='english', use_idf=True)
-		x = np.asarray(vectorizer.fit_transform(list(data.article_title)).todense())
-
+		x_train = np.asarray(vectorizer.fit_transform(list(train.article_title)).todense())
+		y_train = np.asarray(vectorizer.transform(list(test.article_title)).todense())
+		
 		# split data into test and train sets
-		x_train, x_test, y_train, y_test = cross_validation.train_test_split(x, y, test_size=0.3, random_state=1)
+		# x_train, x_test, y_train, y_test = cross_validation.train_test_split(x, y, test_size=0.3, random_state=1)
 
 		# recombine (x, y) for each set
 		train = np.array(zip(x_train, y_train))
