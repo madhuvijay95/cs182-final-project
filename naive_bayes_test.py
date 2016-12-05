@@ -21,8 +21,9 @@ X_test = vectorizer.transform(test_df['article_title'])
 y_test = np.array(test_df['clickbait'])
 
 
+alphas = [0, 0.01, 0.1, 0.25, 0.5, 0.75, 1, 1.5, 2, 3, 5, 10]
+
 naive_bayes = NaiveBayes()
-alphas = [0, 0.01, 0.1, 0.25, 0.5, 0.75, 1, 1.5, 2, 3, 5]
 scores = naive_bayes.cross_validation(X_train, y_train, alphas, output=True)
 with open('naive_bayes_cross-validation_scores.p', 'w') as f:
     pickle.dump(scores, f)
@@ -35,13 +36,16 @@ plt.savefig('naive_bayes_cross-validation.png')
 plt.show()
 alpha = max(scores, key = lambda k : scores[k])
 print 'Best alpha:', alpha
+sys.stdout.flush()
 naive_bayes.fit(X_train, y_train, alpha=alpha, vocab=vocab)
-print 'Madhu NB test accuracy (with optimal alpha): %.5f' % naive_bayes.score(X_test, y_test)
+print 'Naive Bayes test accuracy (with optimal alpha): %.5f' % naive_bayes.score(X_test, y_test)
 print
+sys.stdout.flush()
 
 print 'Representative words:'
 print naive_bayes.representative_words(n_words=20)
 print
+sys.stdout.flush()
 
 rep_errors = naive_bayes.representative_errors(X_test, y_test)
 print 'Some non-clickbait titles that were misclassified as clickbait:'
@@ -102,6 +106,17 @@ plt.savefig('not-naive_bayes_cross-validation.png')
 plt.show()
 alpha = max(scores, key = lambda k : scores[k])
 print 'Best alpha:', alpha
+sys.stdout.flush()
 not_naive_bayes.fit(X_train_new, y_train, alpha=alpha, vocab=vocab)
 print 'Not-Naive Bayes test accuracy (with optimal alpha): %.5f' % not_naive_bayes.score(X_test_new, y_test)
 print
+sys.stdout.flush()
+
+rep_errors = naive_bayes.representative_errors(X_test, y_test)
+print 'Some non-clickbait titles that were misclassified as clickbait:'
+for title in test_df['article_title'].iloc[rep_errors[0]]:
+    print title.encode('utf-8')
+print
+print 'Some clickbait titles that were misclassified as non-clickbait:'
+for title in test_df['article_title'].iloc[rep_errors[1]]:
+    print title.encode('utf-8')
