@@ -90,7 +90,6 @@ class kNearestNeighbors:
 
 	# cross validate across values of k or n (tfidf n_features param)
 	def cv(self, traindf, testdf, k_vals=None, n_vals=None):
-		
 		# store accuracies to find best value
 		accuracies = {}
 		
