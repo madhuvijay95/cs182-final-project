@@ -1,5 +1,5 @@
 import pandas as pd
-from knn import kNearestNeighbors
+from svm import SupportVectorMachine
 import sys
 import time
 
@@ -18,13 +18,10 @@ test.article_title = [x.lower() for x in test.article_title]
 # randomly sample fraction of data for testing
 # df = df.sample(frac=0.2)
 
-print '====================== hand kNN RESULTS ======================'
+train.ix[train.clickbait == 0, 'clickbait'] = -1
+test.ix[test.clickbait == 0, 'clickbait'] = -1
 
-knn = kNearestNeighbors(k=3, n_features=10)
-knn.fit_score(train, test)
+print '====================== hand SVM RESULTS ======================'
 
-# cross-validation
-# knn.cv(df, k_vals=[1,3,5,7,9])
-# knn.cv(df, n_vals=[10,50,100,250,500])
-
-sys.stdout.flush()
+svm = SupportVectorMachine(lmbda=1., n_features=100)
+svm.fit_score(train, test)
