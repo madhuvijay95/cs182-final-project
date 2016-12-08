@@ -55,7 +55,7 @@ class NaiveBayes:
         return predictions
 
     # Computes accuracy of the classifier on the given data (i.e. computes predictions on X, and computes how frequently
-    # the predictions match the actual cluster assignments).
+    # the predictions match the actual class assignments).
     def score(self, X, y):
         predictions = self.predict(X)
         n_correct = sum([p==c for p, c in zip(predictions, y)])
@@ -89,7 +89,7 @@ class NaiveBayes:
                 X_train = sp.sparse.vstack(tuple(split_X[i] for i in range(k) if i != leave_out))
                 y_train = np.concatenate(tuple(split_y[i] for i in range(k) if i != leave_out))
                 self.fit(X_train, y_train, alpha)
-                # compute and store accuracy on the left-out subset
+                # compute and store the accuracy on the held-out validation subset
                 score = self.score(split_X[leave_out], split_y[leave_out])
                 scores[alpha].append(score)
                 if output:
@@ -197,12 +197,18 @@ class NotNaiveBayes:
     def predict_proba(self, X):
         return np.exp(self.predict_log_proba(X))
 
+    # Same as predict_log_proba and predict_proba, but outputs the single most likely class assignment (instead of a
+    # full distribution) for each data point.
     def predict(self, X):
+        # compute log probability of each class for each data point
         log_proba = self.predict_log_proba(X)
+        # compute and return the most likely class for each data point in X
         predictions = np.argmax(log_proba, axis=1)
         predictions = [self.classes[i] for i in predictions]
         return predictions
 
+    # Computes accuracy of the classifier on the given data (i.e. computes predictions on X, and computes how frequently
+    # the predictions match the actual class assignments).
     def score(self, X, y):
         predictions = self.predict(X)
         n_correct = sum([p==c for p, c in zip(predictions, y)])
@@ -230,14 +236,19 @@ class NotNaiveBayes:
                 sys.stdout.flush()
             # initialize scores[alpha] as a list to store the k accuracy rates
             scores[alpha] = []
-            # loop over the k subsets to leave out
             count_mats_all = []
+            # loop over the k subsets (for training)
             for leave_out in range(k):
-                # train
+                # compute and store a matrix of counts for the current subset alone
                 self.fit(split_X[leave_out], split_y[leave_out], alpha)
                 count_mats_all.append(self.count_mats)
+            # loop over the k subsets (for testing)
             for leave_out in range(k):
-                self.count_mats = [reduce(lambda mat1, mat2 : mat1+mat2, [count_mats_all[i][c] for i in range(k) if i != leave_out]) for c in range(self.nclasses)]
+                # compute the count matrix for everything excluding the current subset (by summing matrices from the
+                # previous loop)
+                self.count_mats = [reduce(lambda m1, m2 : m1+m2, [count_mats_all[i][c] for i in range(k) if i != leave_out])
+                                   for c in range(self.nclasses)]
+                # compute and store the accuracy on the held-out validation subset
                 score = self.score(split_X[leave_out], split_y[leave_out])
                 scores[alpha].append(score)
                 if output:
