@@ -32,7 +32,7 @@ class NaiveBayes:
     # Take in an N x D data matrix X and output an N x K matrix (where K is the number of topics) containing the
     # posterior log probability of each topic assignment for each data point.
     def predict_log_proba(self, X):
-        # compute the log probability of each document given each possible class assignment
+        # compute the log likelihood of each document given each possible class assignment
         log_proba = X.dot(self.logwordprobs.T)
         # incorporate prior class probabilities to find posterior probability of each class for each data point
         log_proba += self.logclassprobs
@@ -131,12 +131,8 @@ class NaiveBayes:
         return extreme_errors
 
 class NotNaiveBayes:
-    def convert(self, dataset, countvectorizer):
-        analyzer = countvectorizer.build_analyzer()
-        return [[countvectorizer.vocabulary_[word] for word in analyzer(title) if word in countvectorizer.vocabulary_] for title in dataset]
-
-    # The fit function takes an input (which is a list of lists, where each sub-list represents a list of indices of
-    # words in that title.
+    # The fit function takes an input (which is a list of lists, where each sub-list represents a list of vocabulary
+    # indices of words in that title, in order).
     def fit(self, X, y, alpha=1., vocab=None):
         # store parameters
         self.alpha = alpha
@@ -163,7 +159,7 @@ class NotNaiveBayes:
             cb_mat = sp.sparse.lil_matrix((self.vocab_size+1, self.vocab_size))
             # loop through all data points that are in the current class c
             for lst in [x for x, k in zip(X, y) if k == c]:
-                # pad the start and end of the word list with extra values to represent the start and end
+                # pad the start of the word list with an extra value to represent the start
                 lst_new = [cb_mat.shape[0]-1] + lst
                 # list of tuples of consecutive word indices
                 seq_lst = zip(lst_new[0:-1], lst_new[1:])
@@ -172,14 +168,32 @@ class NotNaiveBayes:
                     cb_mat[tup] += 1
             self.count_mats.append(cb_mat.copy())
 
+    # Helper function: Takes a dataset (in the form of a list, array, or Series of documents) and a CountVectorizer
+    # object, and converts the dataset into the correct form of an input to this algorithm.
+    def convert(self, dataset, countvectorizer):
+        analyzer = countvectorizer.build_analyzer()
+        return [[countvectorizer.vocabulary_[word] for word in analyzer(title) if word in countvectorizer.vocabulary_]
+                for title in dataset]
+
+    # Output an N x K matrix (where N is the number of data points and K is the number of topics) containing the
+    # posterior log probability of each topic assignment for each data point.
     def predict_log_proba(self, X):
+        # pad the start of each word list with an extra value to represent the start
         X_modified = [[self.vocab_size] + lst for lst in X]
+        # convert each list into a list of tuples of consecutive elements
         X_modified = [zip(lst[0:-1], lst[1:]) for lst in X_modified]
-        log_proba = np.array([[sum([np.log(float(mat[tup[0], tup[1]] + self.alpha) / (mat[tup[0]].sum() + self.alpha * mat.shape[1])) for tup in lst]) for mat in self.count_mats] for lst in X_modified])
+        # compute the log likelihood of each document given each possible class assignment
+        log_proba = np.array([[sum([np.log(float(mat[tup[0], tup[1]] + self.alpha) / (mat[tup[0]].sum() + self.alpha * mat.shape[1]))
+                                    for tup in lst])
+                               for mat in self.count_mats]
+                              for lst in X_modified])
+        # incorporate prior class probabilities to find posterior probability of each class for each data point
         log_proba += self.logclassprobs
+        # normalize each row to sum to 1
         log_proba = (log_proba.T - np.log(np.exp(log_proba).sum(axis=1))).T
         return log_proba
 
+    # Same as predict_log_proba, but outputs probabilities instead of log probabilities
     def predict_proba(self, X):
         return np.exp(self.predict_log_proba(X))
 
