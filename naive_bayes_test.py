@@ -9,40 +9,59 @@ import cPickle as pickle
 from scipy.sparse import hstack, csr_matrix
 import matplotlib.pyplot as plt
 
+# import data into dataframes
+trainfile = 'train.csv'
+testfile = 'test.csv'
 train_df = pd.read_csv('train.csv')
 test_df = pd.read_csv('test.csv')
+
+# use sklearn's CountVectorizer to determine the vocabulary and create a vectorizer object
 vectorizer = CountVectorizer(stop_words='english', min_df=5, max_df=0.1, ngram_range=(1,3))
 vectorizer.fit(train_df['article_title'])
 vocab = vectorizer.vocabulary_
 vocab_rev = {v:k for k,v in vectorizer.vocabulary_.items()}
 
+# create word count matrices using the CountVectorizer object
 X_train = vectorizer.transform(train_df['article_title'])
 X_test = vectorizer.transform(test_df['article_title'])
+
+# create vectors of class labels
+y_train = np.array(train_df['clickbait'])
+y_test = np.array(test_df['clickbait'])
+
+# use TF-IDF (term frequency-inverse document frequency) to transform the count matrices, downweighting very common
+# words and upweighting more rare useful ones
 tfidf = TfidfTransformer()
 tfidf.fit(X_train)
 X_train_tfidf = tfidf.transform(X_train)
 X_test_tfidf = tfidf.transform(X_test)
-y_train = np.array(train_df['clickbait'])
-y_test = np.array(test_df['clickbait'])
 
 
 
+# list of smoothing parameters to test
 alphas = [0, 0.01, 0.1, 0.25, 0.5, 0.75, 1, 1.5, 2, 3, 5, 10]
 
+# initialize Naive Bayes model
 naive_bayes = NaiveBayes()
+
 
 print '=================================NAIVE BAYES RESULTS (WITH TF-IDF)================================='
 
+# compute and store cross-validation scores (using count matrices with TF-IDF transformation)
 scores = naive_bayes.cross_validation(X_train_tfidf, y_train, alphas, output=True)
 with open('naive_bayes_cross-validation_scores_tfidf.p', 'w') as f:
     pickle.dump(scores, f)
 scores = {k:np.mean(v) for k,v in scores.items()}
+
+# plot cross-validation scores
 plt.plot(alphas, [scores[alpha] for alpha in alphas])
 plt.title('Naive Bayes Cross-Validation (TF-IDF)')
 plt.xlabel('Alpha')
 plt.ylabel('Mean cross-validation accuracy')
 plt.savefig('naive_bayes_cross-validation_tfidf.png')
 plt.show()
+
+# choose best value for hyperparameter alpha, and fit/test the model with that value
 alpha = max(scores, key = lambda k : scores[k])
 print 'Best alpha:', alpha
 sys.stdout.flush()
@@ -54,16 +73,21 @@ sys.stdout.flush()
 
 print '=================================NAIVE BAYES RESULTS (WITHOUT TF-IDF)================================='
 
+# compute and store cross-validation scores (using count matrices without TF-IDF transformation)
 scores = naive_bayes.cross_validation(X_train, y_train, alphas, output=True)
 with open('naive_bayes_cross-validation_scores.p', 'w') as f:
     pickle.dump(scores, f)
 scores = {k:np.mean(v) for k,v in scores.items()}
+
+# plot cross-validation scores
 plt.plot(alphas, [scores[alpha] for alpha in alphas])
 plt.title('Naive Bayes Cross-Validation')
 plt.xlabel('Alpha')
 plt.ylabel('Mean cross-validation accuracy')
 plt.savefig('naive_bayes_cross-validation.png')
 plt.show()
+
+# choose best value for hyperparameter alpha, and fit/test the model with that value
 alpha = max(scores, key = lambda k : scores[k])
 print 'Best alpha:', alpha
 sys.stdout.flush()
@@ -72,11 +96,14 @@ print 'Naive Bayes test accuracy (with optimal alpha): %.5f' % naive_bayes.score
 print
 sys.stdout.flush()
 
+# output lists of representative words for each topic
 print 'Representative words:'
-print naive_bayes.representative_words(n_words=20)
+for lst in naive_bayes.representative_words(n_words=20):
+    print lst
 print
 sys.stdout.flush()
 
+# print some examples of topics that were misclassified (in both directions)
 rep_errors = naive_bayes.representative_errors(X_test, y_test)
 print 'Some non-clickbait titles that were misclassified as clickbait:'
 for title in test_df['article_title'].iloc[rep_errors[0]]:
