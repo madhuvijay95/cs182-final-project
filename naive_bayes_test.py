@@ -16,7 +16,7 @@ train_df = pd.read_csv('train.csv')
 test_df = pd.read_csv('test.csv')
 
 # use sklearn's CountVectorizer to determine the vocabulary and create a vectorizer object
-vectorizer = CountVectorizer(stop_words='english', min_df=5, ngram_range=(1,3))
+vectorizer = CountVectorizer(stop_words='english', ngram_range=(1,3))
 vectorizer.fit(train_df['article_title'])
 vocab = vectorizer.vocabulary_
 vocab_rev = {v:k for k,v in vectorizer.vocabulary_.items()}
@@ -39,7 +39,7 @@ X_test_tfidf = tfidf.transform(X_test)
 
 
 # list of smoothing parameters to test in cross-validation
-alphas = [0, 0.01, 0.1, 0.25, 0.5, 0.75, 1, 1.5, 2, 3, 5, 10]
+alphas = [0, 0.01, 0.1, 0.25, 0.5, 0.75, 1, 1.5, 2, 3, 5, 10, 20, 50]
 # number of subsets to use for cross-validation
 n_folds = 5
 
@@ -64,6 +64,12 @@ plt.xlabel('Alpha')
 plt.ylabel('Mean cross-validation accuracy')
 plt.savefig('naive_bayes_cross-validation_tfidf.png')
 plt.show()
+plt.plot(alphas[0:8], [scores_tfidf[alpha] for alpha in alphas[0:8]])
+plt.title('Naive Bayes Cross-Validation (TF-IDF)')
+plt.xlabel('Alpha')
+plt.ylabel('Mean cross-validation accuracy')
+plt.savefig('naive_bayes_cross-validation_tfidf_zoomed.png')
+plt.show()
 print
 
 print '=============================NAIVE BAYES CROSS-VALIDATION RESULTS (WITHOUT TF-IDF)============================='
@@ -82,6 +88,12 @@ plt.title('Naive Bayes Cross-Validation')
 plt.xlabel('Alpha')
 plt.ylabel('Mean cross-validation accuracy')
 plt.savefig('naive_bayes_cross-validation.png')
+plt.show()
+plt.plot(alphas[0:8], [scores_no_tfidf[alpha] for alpha in alphas[0:8]])
+plt.title('Naive Bayes Cross-Validation')
+plt.xlabel('Alpha')
+plt.ylabel('Mean cross-validation accuracy')
+plt.savefig('naive_bayes_cross-validation_zoomed.png')
 plt.show()
 print
 
@@ -176,14 +188,14 @@ sys.stdout.flush()
 
 print '=================================LESS-NAIVE BAYES RESULTS================================='
 
-vectorizer = CountVectorizer(stop_words='english', min_df=5)
+vectorizer = CountVectorizer(stop_words='english')
 vectorizer.fit(train_df['article_title'])
 vocab = vectorizer.vocabulary_
 not_naive_bayes = NotNaiveBayes()
 X_train_new = not_naive_bayes.convert(train_df['article_title'], vectorizer)
 X_test_new = not_naive_bayes.convert(test_df['article_title'], vectorizer)
 
-alphas = [0, 0.01, 0.1, 0.25, 0.5, 0.75, 1, 1.5, 2, 3, 5]
+alphas = [0, 0.01, 0.1, 0.25, 0.5, 0.75, 1, 1.5, 2, 3, 5, 10, 20, 50]
 scores = not_naive_bayes.cross_validation(X_train_new, y_train, vocab, alphas, output=True, k=n_folds)
 with open('not-naive_bayes_cross-validation_scores.p', 'w') as f:
     pickle.dump(scores, f)
@@ -193,6 +205,12 @@ plt.title('Not-Naive Bayes Cross-Validation')
 plt.xlabel('Alpha')
 plt.ylabel('Mean cross-validation accuracy')
 plt.savefig('not-naive_bayes_cross-validation.png')
+plt.show()
+plt.plot(alphas[0:8], [scores[alpha] for alpha in alphas[0:8]])
+plt.title('Not-Naive Bayes Cross-Validation')
+plt.xlabel('Alpha')
+plt.ylabel('Mean cross-validation accuracy')
+plt.savefig('not-naive_bayes_cross-validation_zoomed.png')
 plt.show()
 alpha = max(scores, key = lambda k : scores[k])
 print 'Best alpha:', alpha
