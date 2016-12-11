@@ -5,8 +5,8 @@ import sys
 
 class NaiveBayes:
     # Fits the Naive Bayes model, given a matrix X of word counts (e.g. using the output of sklearn's CountVectorizer),
-    # and a list y of class assignments.
-    def fit(self, X, y, alpha=1., vocab=None): # TODO should probably put the parameter initialization in an __init__ function, instead of the fit function itself
+    # a list y of class assignments, and a vocabulary.
+    def fit(self, X, y, vocab, alpha=1.):
         # store parameters
         self.alpha = alpha
         self.vocab = vocab
@@ -62,7 +62,7 @@ class NaiveBayes:
         return float(n_correct) / X.shape[0]
 
     # Use k-fold cross-validation to test different values of the smoothing parameter alpha.
-    def cross_validation(self, X, y, alphas, k=5, output=False):
+    def cross_validation(self, X, y, vocab, alphas, k=5, output=False):
         # compute number of data points
         n_samples = X.shape[0]
         assert(len(y) == n_samples)
@@ -88,7 +88,7 @@ class NaiveBayes:
                 # train the model on all data except the left-out set
                 X_train = sp.sparse.vstack(tuple(split_X[i] for i in range(k) if i != leave_out))
                 y_train = np.concatenate(tuple(split_y[i] for i in range(k) if i != leave_out))
-                self.fit(X_train, y_train, alpha)
+                self.fit(X_train, y_train, vocab, alpha=alpha)
                 # compute and store the accuracy on the held-out validation subset
                 score = self.score(split_X[leave_out], split_y[leave_out])
                 scores[alpha].append(score)
@@ -131,9 +131,9 @@ class NaiveBayes:
         return extreme_errors
 
 class NotNaiveBayes:
-    # The fit function takes an input (which is a list of lists, where each sub-list represents a list of vocabulary
-    # indices of words in that title, in order).
-    def fit(self, X, y, alpha=1., vocab=None):
+    # Fit model, given X (which is a list of lists, where each sub-list represents a list of vocabulary indices of
+    # words in a given title, in order), a list y of class assignments, and a vocabulary.
+    def fit(self, X, y, vocab, alpha=1.):
         # store parameters
         self.alpha = alpha
         self.vocab = vocab
@@ -215,7 +215,7 @@ class NotNaiveBayes:
         return float(n_correct) / len(X)
 
     # Use k-fold cross-validation to test different values of the smoothing parameter alpha.
-    def cross_validation(self, X, y, alphas, k=5, output=False):
+    def cross_validation(self, X, y, vocab, alphas, k=5, output=False):
         # compute number of data points
         n_samples = len(X)
         assert(len(y) == n_samples)
@@ -240,8 +240,9 @@ class NotNaiveBayes:
             # loop over the k subsets (for training)
             for leave_out in range(k):
                 # compute and store a matrix of counts for the current subset alone
-                self.fit(split_X[leave_out], split_y[leave_out], alpha)
+                self.fit(split_X[leave_out], split_y[leave_out], vocab, alpha=alpha)
                 count_mats_all.append(self.count_mats)
+            print [[count_mats_all[i][c].shape for i in range(k)] for c in range(self.nclasses)]
             # loop over the k subsets (for testing)
             for leave_out in range(k):
                 # compute the count matrix for everything excluding the current subset (by summing matrices from the
