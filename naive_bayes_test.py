@@ -1,7 +1,6 @@
 import pandas as pd
 import numpy as np
 from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
-from sklearn.naive_bayes import MultinomialNB
 from naive_bayes import NaiveBayes, NotNaiveBayes
 import sys
 import gensim
@@ -14,6 +13,9 @@ trainfile = 'train.csv'
 testfile = 'test.csv'
 train_df = pd.read_csv('train.csv')
 test_df = pd.read_csv('test.csv')
+# remove apostrophes
+train_df['article_title'] = [title.replace('\'', '') for title in train_df['article_title']]
+test_df['article_title'] = [title.replace('\'', '') for title in test_df['article_title']]
 
 # use sklearn's CountVectorizer to determine the vocabulary and create a vectorizer object
 vectorizer = CountVectorizer(stop_words='english', ngram_range=(1,3))
