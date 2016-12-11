@@ -242,7 +242,6 @@ class NotNaiveBayes:
                 # compute and store a matrix of counts for the current subset alone
                 self.fit(split_X[leave_out], split_y[leave_out], vocab, alpha=alpha)
                 count_mats_all.append(self.count_mats)
-            print [[count_mats_all[i][c].shape for i in range(k)] for c in range(self.nclasses)]
             # loop over the k subsets (for testing)
             for leave_out in range(k):
                 # compute the count matrix for everything excluding the current subset (by summing matrices from the

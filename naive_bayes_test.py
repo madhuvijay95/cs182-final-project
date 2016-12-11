@@ -16,7 +16,7 @@ train_df = pd.read_csv('train.csv')
 test_df = pd.read_csv('test.csv')
 
 # use sklearn's CountVectorizer to determine the vocabulary and create a vectorizer object
-vectorizer = CountVectorizer(stop_words='english', min_df=5, max_df=0.1, ngram_range=(1,3))
+vectorizer = CountVectorizer(stop_words='english', min_df=5, ngram_range=(1,3))
 vectorizer.fit(train_df['article_title'])
 vocab = vectorizer.vocabulary_
 vocab_rev = {v:k for k,v in vectorizer.vocabulary_.items()}
@@ -176,7 +176,7 @@ sys.stdout.flush()
 
 print '=================================LESS-NAIVE BAYES RESULTS================================='
 
-vectorizer = CountVectorizer(stop_words='english', min_df=5, max_df=0.1)
+vectorizer = CountVectorizer(stop_words='english', min_df=5)
 vectorizer.fit(train_df['article_title'])
 vocab = vectorizer.vocabulary_
 not_naive_bayes = NotNaiveBayes()
