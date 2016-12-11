@@ -38,26 +38,28 @@ class kNearestNeighbors:
 		train = np.array(zip(x_train, y_train))
 		test = np.array(zip(x_test, y_test))
 
-		# iterate through and generate predictions for test observations
-		predictions = []
-		for x in range(len(test)):
-		    
-			# keep track of progress by 100-sized batches
-			if progress:
-				if x % 100 == 0:
-					print "classified", x, "observations ..."
-		    
-			# predict class based on majority vote for k neighors
-			prediction = self.majority_vote(self.get_neighbors(train_data=train, test_obs=test[x][0], k=self.k))
-			predictions.append(prediction)
+		# turn train and test word counts into matrices
+		train_mat = np.array([row[0] for row in train])
+		test_mat = np.array([row[0] for row in test])
+
+		# generate a matrix containing the Euclidean distance between each row of the train data and each row of the
+		# test data, using the fact that ||x-y||^2 = ||x||^2 + ||y||^2 - 2x^T*y for any vectors x and y
+		dists = np.dot(np.ones((test_mat.shape[0], 1)), np.array([np.linalg.norm(train_mat, axis=1)**2]))\
+				+ np.dot(np.array([np.linalg.norm(test_mat, axis=1)**2]).T, np.ones((1, train_mat.shape[0])))\
+				- 2 * np.dot(test_mat, train_mat.T)
+		# find the k closest neighbors from the train data for each test data point
+		neighbors_all = [sorted(enumerate(row), key = lambda tup : tup[1])[0:self.k] for row in dists]
+		neighbors_all = [[(tup[0], y_train[tup[0]]) for tup in row] for row in neighbors_all]
+		# use majority_vote to generate predictions
+		predictions = [self.majority_vote(neighbors) for neighbors in neighbors_all]
 
 		# summarize model performance
 		self.accuracy = accuracy_score(y_test, predictions)
 		print "took %s seconds" % (time.time() - start_time)
-		print "overall accuracy is " + str(self.accuracy) 
+		print "overall accuracy is " + str(self.accuracy)
 		if full_report:
 			print "full report:"
-			print 
+			print
 			print classification_report(y_test, predictions, target_names = ['clickbait','non-clickbait'])
 
 	# calculate euclidean distance between two data points x_1 and x_2
