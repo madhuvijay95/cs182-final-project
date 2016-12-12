@@ -13,12 +13,15 @@ class kNearestNeighbors:
     #		 	(2) list y of class assignments
     # output: 	(1) list of predictions for class assignments
 
-	def __init__(self, k=3, n_features=50):
+	def __init__(self, k=9, n_features=100000):
 		self.k = k
 		self.n_features = n_features
 
 	# generate predictions for data (in pandas dataframe format)
-	def fit_score(self, traindf, testdf, full_report=True, progress=True):
+	def fit_score(self, traindf, testdf, k=9, n=100000, full_report=True, progress=True):
+
+		self.k = k
+		self.n_features = n
 
 		start_time = time.time() 
 
@@ -42,14 +45,17 @@ class kNearestNeighbors:
 		train_mat = np.array([row[0] for row in train])
 		test_mat = np.array([row[0] for row in test])
 
+
 		# generate a matrix containing the Euclidean distance between each row of the train data and each row of the
 		# test data, using the fact that ||x-y||^2 = ||x||^2 + ||y||^2 - 2x^T*y for any vectors x and y
 		dists = np.dot(np.ones((test_mat.shape[0], 1)), np.array([np.linalg.norm(train_mat, axis=1)**2]))\
 				+ np.dot(np.array([np.linalg.norm(test_mat, axis=1)**2]).T, np.ones((1, train_mat.shape[0])))\
 				- 2 * np.dot(test_mat, train_mat.T)
+
 		# find the k closest neighbors from the train data for each test data point
 		neighbors_all = [sorted(enumerate(row), key = lambda tup : tup[1])[0:self.k] for row in dists]
 		neighbors_all = [[(tup[0], y_train[tup[0]]) for tup in row] for row in neighbors_all]
+		
 		# use majority_vote to generate predictions
 		predictions = [self.majority_vote(neighbors) for neighbors in neighbors_all]
 
@@ -98,13 +104,13 @@ class kNearestNeighbors:
 		if k_vals is not None:
 			for k in k_vals:
 				print '========== k = %s ==========' % k
-				self.fit_score(traindf=traindf, testdf=testdf, k=k, n_features=50, full_report=False, progress=False)
+				self.fit_score(traindf=traindf, testdf=testdf, k=k, n=100000, full_report=False, progress=False)
 				accuracies[k] = self.accuracy
 			print "best value of k is", max(accuracies.iteritems(), key=itemgetter(1))
 		
 		if n_vals is not None:
 			for n in n_vals:
 				print '========== n = %s ==========' % n
-				self.fit_score(traindf=traindf, testdf=testdf, k=9, n_features=n, full_report=False, progress=False)
+				self.fit_score(traindf=traindf, testdf=testdf, k=9, n=n, full_report=False, progress=False)
 				accuracies[n] = self.accuracy
 			print "best value of n is", max(accuracies.iteritems(), key=itemgetter(1))
