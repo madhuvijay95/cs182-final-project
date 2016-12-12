@@ -167,8 +167,6 @@ sys.stdout.flush()
 vocab = dict(vectorizer.vocabulary_.items() + [('LDA Topic %d' % i, len(vectorizer.vocabulary_) + i) for i in range(num_topics)])
 vocab_rev = {v:k for k,v in vectorizer.vocabulary_.items()}
 n_append = 10
-#print X_train_final.shape, X_test_final.shape
-#sys.stdout.flush()
 X_train_lda_output = csr_matrix(np.array([list(zip(*(lda[row]))[1]) for row in X_train_lda]))
 X_test_lda_output = csr_matrix(np.array([list(zip(*(lda[row]))[1]) for row in X_test_lda]))
 for _ in range(n_append):
@@ -179,10 +177,6 @@ for _ in range(n_append):
     print 'Naive Bayes test accuracy (with optimal alpha, and with LDA appended): %.5f' %\
           naive_bayes.score(X_test_final, y_test)
     sys.stdout.flush()
-#naive_bayes.fit(X_train_final, y_train, vocab, alpha=alpha)
-#print 'Naive Bayes test accuracy (with optimal alpha, and with LDA appended): %.5f' %\
-#      naive_bayes.score(X_test_final, y_test)
-
 print
 print
 sys.stdout.flush()
