@@ -5,8 +5,8 @@ import sys
 
 class NaiveBayes:
     # Fits the Naive Bayes model, given a matrix X of word counts (e.g. using the output of sklearn's CountVectorizer),
-    # and a list y of class assignments.
-    def fit(self, X, y, alpha=1., vocab=None): # TODO should probably put the parameter initialization in an __init__ function, instead of the fit function itself
+    # a list y of class assignments, and a vocabulary.
+    def fit(self, X, y, vocab, alpha=1.):
         # store parameters
         self.alpha = alpha
         self.vocab = vocab
@@ -32,7 +32,7 @@ class NaiveBayes:
     # Take in an N x D data matrix X and output an N x K matrix (where K is the number of topics) containing the
     # posterior log probability of each topic assignment for each data point.
     def predict_log_proba(self, X):
-        # compute the log probability of each document given each possible class assignment
+        # compute the log likelihood of each document given each possible class assignment
         log_proba = X.dot(self.logwordprobs.T)
         # incorporate prior class probabilities to find posterior probability of each class for each data point
         log_proba += self.logclassprobs
@@ -55,14 +55,14 @@ class NaiveBayes:
         return predictions
 
     # Computes accuracy of the classifier on the given data (i.e. computes predictions on X, and computes how frequently
-    # the predictions match the actual cluster assignments).
+    # the predictions match the actual class assignments).
     def score(self, X, y):
         predictions = self.predict(X)
         n_correct = sum([p==c for p, c in zip(predictions, y)])
         return float(n_correct) / X.shape[0]
 
     # Use k-fold cross-validation to test different values of the smoothing parameter alpha.
-    def cross_validation(self, X, y, alphas, k=5, output=False):
+    def cross_validation(self, X, y, vocab, alphas, k=5, output=False):
         # compute number of data points
         n_samples = X.shape[0]
         assert(len(y) == n_samples)
@@ -88,8 +88,8 @@ class NaiveBayes:
                 # train the model on all data except the left-out set
                 X_train = sp.sparse.vstack(tuple(split_X[i] for i in range(k) if i != leave_out))
                 y_train = np.concatenate(tuple(split_y[i] for i in range(k) if i != leave_out))
-                self.fit(X_train, y_train, alpha)
-                # compute and store accuracy on the left-out subset
+                self.fit(X_train, y_train, vocab, alpha=alpha)
+                # compute and store the accuracy on the held-out validation subset
                 score = self.score(split_X[leave_out], split_y[leave_out])
                 scores[alpha].append(score)
                 if output:
@@ -131,13 +131,9 @@ class NaiveBayes:
         return extreme_errors
 
 class NotNaiveBayes:
-    def convert(self, dataset, countvectorizer):
-        analyzer = countvectorizer.build_analyzer()
-        return [[countvectorizer.vocabulary_[word] for word in analyzer(title) if word in countvectorizer.vocabulary_] for title in dataset]
-
-    # The fit function takes an input (which is a list of lists, where each sub-list represents a list of indices of
-    # words in that title.
-    def fit(self, X, y, alpha=1., vocab=None):
+    # Fit model, given X (which is a list of lists, where each sub-list represents a list of vocabulary indices of
+    # words in a given title, in order), a list y of class assignments, and a vocabulary.
+    def fit(self, X, y, vocab, alpha=1.):
         # store parameters
         self.alpha = alpha
         self.vocab = vocab
@@ -163,7 +159,7 @@ class NotNaiveBayes:
             cb_mat = sp.sparse.lil_matrix((self.vocab_size+1, self.vocab_size))
             # loop through all data points that are in the current class c
             for lst in [x for x, k in zip(X, y) if k == c]:
-                # pad the start and end of the word list with extra values to represent the start and end
+                # pad the start of the word list with an extra value to represent the start
                 lst_new = [cb_mat.shape[0]-1] + lst
                 # list of tuples of consecutive word indices
                 seq_lst = zip(lst_new[0:-1], lst_new[1:])
@@ -172,30 +168,54 @@ class NotNaiveBayes:
                     cb_mat[tup] += 1
             self.count_mats.append(cb_mat.copy())
 
+    # Helper function: Takes a dataset (in the form of a list, array, or Series of documents) and a CountVectorizer
+    # object, and converts the dataset into the correct form of an input to this algorithm.
+    def convert(self, dataset, countvectorizer):
+        analyzer = countvectorizer.build_analyzer()
+        return [[countvectorizer.vocabulary_[word] for word in analyzer(title) if word in countvectorizer.vocabulary_]
+                for title in dataset]
+
+    # Output an N x K matrix (where N is the number of data points and K is the number of topics) containing the
+    # posterior log probability of each topic assignment for each data point.
     def predict_log_proba(self, X):
+        # pad the start of each word list with an extra value to represent the start
         X_modified = [[self.vocab_size] + lst for lst in X]
+        # convert each list into a list of tuples of consecutive elements
         X_modified = [zip(lst[0:-1], lst[1:]) for lst in X_modified]
-        log_proba = np.array([[sum([np.log(float(mat[tup[0], tup[1]] + self.alpha) / (mat[tup[0]].sum() + self.alpha * mat.shape[1])) for tup in lst]) for mat in self.count_mats] for lst in X_modified])
+        # compute the log likelihood of each document given each possible class assignment
+        log_proba = np.array([[sum([np.log(float(mat[tup[0], tup[1]] + self.alpha) / (mat[tup[0]].sum() + self.alpha * mat.shape[1]))
+                                    for tup in lst])
+                               for mat in self.count_mats]
+                              for lst in X_modified])
+        # incorporate prior class probabilities to find posterior probability of each class for each data point
         log_proba += self.logclassprobs
+        # normalize each row to sum to 1
         log_proba = (log_proba.T - np.log(np.exp(log_proba).sum(axis=1))).T
         return log_proba
 
+    # Same as predict_log_proba, but outputs probabilities instead of log probabilities
     def predict_proba(self, X):
         return np.exp(self.predict_log_proba(X))
 
+    # Same as predict_log_proba and predict_proba, but outputs the single most likely class assignment (instead of a
+    # full distribution) for each data point.
     def predict(self, X):
+        # compute log probability of each class for each data point
         log_proba = self.predict_log_proba(X)
+        # compute and return the most likely class for each data point in X
         predictions = np.argmax(log_proba, axis=1)
         predictions = [self.classes[i] for i in predictions]
         return predictions
 
+    # Computes accuracy of the classifier on the given data (i.e. computes predictions on X, and computes how frequently
+    # the predictions match the actual class assignments).
     def score(self, X, y):
         predictions = self.predict(X)
         n_correct = sum([p==c for p, c in zip(predictions, y)])
         return float(n_correct) / len(X)
 
     # Use k-fold cross-validation to test different values of the smoothing parameter alpha.
-    def cross_validation(self, X, y, alphas, k=5, output=False):
+    def cross_validation(self, X, y, vocab, alphas, k=5, output=False):
         # compute number of data points
         n_samples = len(X)
         assert(len(y) == n_samples)
@@ -216,14 +236,19 @@ class NotNaiveBayes:
                 sys.stdout.flush()
             # initialize scores[alpha] as a list to store the k accuracy rates
             scores[alpha] = []
-            # loop over the k subsets to leave out
             count_mats_all = []
+            # loop over the k subsets (for training)
             for leave_out in range(k):
-                # train
-                self.fit(split_X[leave_out], split_y[leave_out], alpha)
+                # compute and store a matrix of counts for the current subset alone
+                self.fit(split_X[leave_out], split_y[leave_out], vocab, alpha=alpha)
                 count_mats_all.append(self.count_mats)
+            # loop over the k subsets (for testing)
             for leave_out in range(k):
-                self.count_mats = [reduce(lambda mat1, mat2 : mat1+mat2, [count_mats_all[i][c] for i in range(k) if i != leave_out]) for c in range(self.nclasses)]
+                # compute the count matrix for everything excluding the current subset (by summing matrices from the
+                # previous loop)
+                self.count_mats = [reduce(lambda m1, m2 : m1+m2, [count_mats_all[i][c] for i in range(k) if i != leave_out])
+                                   for c in range(self.nclasses)]
+                # compute and store the accuracy on the held-out validation subset
                 score = self.score(split_X[leave_out], split_y[leave_out])
                 scores[alpha].append(score)
                 if output:

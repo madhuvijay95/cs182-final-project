@@ -8,7 +8,7 @@ import time
 # adapted from krzysztof sopyla's implementation at https://github.com/ksopyla/primal_svm
 class SupportVectorMachine:
     
-    # fits the kNN model using gradient descent and a linear kernel
+    # fits the SVM model using gradient descent and a linear kernel
     # input:    (1) matrix X of tf-idf frequencies (e.g. using the output of sklearn's TfidfVectorizer)
     #           (2) list y of class assignments (binary and signed, i.e. -1 and 1)
     # output:   (1) list of predictions for class assignments (based on sign)
