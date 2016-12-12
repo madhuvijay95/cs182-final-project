@@ -21,10 +21,10 @@ test.article_title = [x.lower() for x in test.article_title]
 print '====================== hand kNN RESULTS ======================'
 
 knn = kNearestNeighbors(k=9, n_features=100000)
-# knn.fit_score(train, test)
+knn.fit_score(train, test)
 
 # cross-validation
-knn.cv(train, test, k_vals=[1,3,5,7,9])
+# knn.cv(train, test, k_vals=[1,3,5,7,9])
 # knn.cv(train, test, n_vals=[10,100,1000,10000,100000,1000000])
 
 sys.stdout.flush()
