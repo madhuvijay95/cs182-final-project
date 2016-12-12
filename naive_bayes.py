@@ -3,6 +3,8 @@ import scipy as sp
 from scipy import sparse
 import sys
 
+# Implements the naive Bayes model, which assumes that each word in each document depends only on the class assignment
+# (and is conditionally independent of all other words in the document, given the class).
 class NaiveBayes:
     # Fits the Naive Bayes model, given a matrix X of word counts (e.g. using the output of sklearn's CountVectorizer),
     # a list y of class assignments, and a vocabulary.
@@ -130,6 +132,9 @@ class NaiveBayes:
         extreme_errors = [[ind_lst[err_ind] for err_ind in err_lst] for err_lst, ind_lst in zip(extreme_errors, class_indices)]
         return extreme_errors
 
+
+# Implements the not-naive Bayes model, which assumes that each word in each document depends on the class assignment
+# and on the immediately preceding word.
 class NotNaiveBayes:
     # Fit model, given X (which is a list of lists, where each sub-list represents a list of vocabulary indices of
     # words in a given title, in order), a list y of class assignments, and a vocabulary.
