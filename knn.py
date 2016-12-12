@@ -7,7 +7,6 @@ from sklearn import cross_validation
 import time
 
 class kNearestNeighbors:
-
     # fits the kNN model
     # input: 	(1) matrix X of tf-idf frequencies (e.g. using the output of sklearn's TfidfVectorizer)
     #		 	(2) list y of class assignments

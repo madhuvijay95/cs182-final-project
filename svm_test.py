@@ -15,9 +15,7 @@ test = pd.read_csv(testfile)
 train.article_title = [x.lower() for x in train.article_title]
 test.article_title = [x.lower() for x in test.article_title]
 
-# randomly sample fraction of data for testing
-# df = df.sample(frac=0.2)
-
+# format classes into 1, -1 to accommodate signed scoring approach of svm
 train.ix[train.clickbait == 0, 'clickbait'] = -1
 test.ix[test.clickbait == 0, 'clickbait'] = -1
 
