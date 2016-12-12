@@ -148,7 +148,7 @@ sys.stdout.flush()
 
 
 # This section performs a very limited test of one of the ideas mentioned in the "Discussion" section of our report, to
-# perform unsupervised clustering (using gensim's LDA model)
+# perform unsupervised clustering (using gensim's LDA model) and use its output as features for naive Bayes.
 print '=================================NAIVE BAYES RESULTS (WITH LDA FEATURES)================================='
 
 # cluster data into 3 topics using LDA
