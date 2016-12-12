@@ -7,6 +7,7 @@ import gensim
 import cPickle as pickle
 from scipy.sparse import hstack, csr_matrix
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 # import data into dataframes
 trainfile = 'train.csv'
