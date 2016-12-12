@@ -7,7 +7,7 @@ import time
 
 # adapted from krzysztof sopyla's implementation at https://github.com/ksopyla/primal_svm
 class SupportVectorMachine:
-    
+
     # fits the SVM model using gradient descent and a linear kernel
     # input:    (1) matrix X of tf-idf frequencies (e.g. using the output of sklearn's TfidfVectorizer)
     #           (2) list y of class assignments (binary and signed, i.e. -1 and 1)
@@ -25,12 +25,12 @@ class SupportVectorMachine:
         y_train = np.array(traindf.clickbait)
         y_test = np.array(testdf.clickbait)
         
-        # vectorize x data
+        # vectorize x data using word frequencies
         vectorizer = TfidfVectorizer(max_features=self.n_features, stop_words='english', use_idf=True)
         x_train = np.asarray(vectorizer.fit_transform(list(traindf.article_title)).todense())
         x_test = np.asarray(vectorizer.transform(list(testdf.article_title)).todense())
         
-        # initialize vector of zeros normal to the hyperplane
+        # initialize weight vector (decision vector normal to the hyperplane)
         w = np.zeros(x_train.shape[1]+1)
         
         # loss function values
@@ -39,17 +39,15 @@ class SupportVectorMachine:
         # generate support vectors (training points lying on one of the hyperplanes)
         sv = np.where(loss > 0)[0]
         
-        # compute linear operator in replacement of full hessian
+        # perform conjugate gradient ascent using loss function and linear operator
         mv = lambda v: self.matrix_multiply(x_train, v, sv)
         l_op = linalg.LinearOperator((x_train.shape[1]+1, x_train.shape[1]+1), matvec = mv)
-        
-        # perform conjugate gradient ascent using loss function and linear operator
         self.gradient_descent(x_train, y_train, w, loss, l_op)
         
-        # take dot products between vectors in test data 
+        # compute kernel by taking dot product between vectors in test data 
         scores = x_test.dot(w[0:-1]) + w[-1]
         
-        # generate prediction based on signs of scores (+ = clickbait, - = not)
+        # generate prediction (class assignment) based on signs of scores (+ = clickbait, - = not)
         predictions = np.sign(scores)
         
         # summarize model performance
