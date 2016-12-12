@@ -1,0 +1,21 @@
+RNN Generation Instructions
+
+1. Follow the setup instructions found here: https://github.com/jcjohnson/torch-rnn
+
+2. Copy articles.json and articles.h5 to your torch/torch-rnn/data/ directory.
+
+3. From inside your torch/torch-rnn/ directory run the following command:
+
+	th train.lua -input_h5 data/articles.h5 -input_json data/articles.json -gpu -1
+
+   Note that this command will take several hours to complete. If you want to
+   speed it up and have a high-end Nvidia graphics card in your possession, set up
+   CUDA and run with the -gpu -0 option.
+
+4. Run the following command, again in your torch/torch-rnn directory:
+
+	th sample.lua -checkpoint cv/checkpoint_XXXXXXX.t7 -length 2000 -gpu -1 > rnn_gen_results.txt
+
+   where XXXXXXX is the maximal checkpoint number you find in your torch/torch-rnn/cv/directory.
+   This will generate 2000 characters of output redirected to torch/torch-rnn/rnn_gen_results.txt,
+   the equivalent of several dozen lines where each line should be a separate clickbait headline.
