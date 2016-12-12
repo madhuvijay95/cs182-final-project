@@ -9,7 +9,7 @@ filename = 'augmented.csv'
 df = pd.read_csv(filename)
 del df['Unnamed: 0']
 
-# 70/30 split for train/test
+# 70 / 30 split for train / test
 msk = np.random.rand(len(df)) < 0.7
 train = df[msk]
 test = df[~msk]
